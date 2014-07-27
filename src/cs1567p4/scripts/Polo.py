@@ -109,7 +109,9 @@ def mainLoop():
 	stop()'''
 
 def sayPolo():
-    subprocess.call(["espeak","polo","2>/dev/null"])
+    espeak = subprocess.Popen(('espeak','polo', '--stdout'),stdout=subprocess.PIPE)
+    subprocess.check_output(('paplay'), stdin=espeak.stdout)
+    espeak.wait()
     
 def initialize_commands():
     global const_cmd_srv

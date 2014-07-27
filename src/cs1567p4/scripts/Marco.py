@@ -121,10 +121,8 @@ def callMarco():
     global desiredAngle
     global desiredDistance
     global STATE
-    # Play sound file
-    espeak = subprocess.Popen(('espeak','marco', '--stdout'),stdout=subprocess.PIPE)
-    subprocess.check_output(('paplay'), stdin=espeak.stdout)
-    espeak.wait()
+    # Say Marco
+    sayMarco()
     # Everyone stop
     stop()
     # jump_StopAll() # TODO JUMP
@@ -133,6 +131,14 @@ def callMarco():
     desiredDistance = jump_GetDistance() # TODO JUMP
     # jump_StartAll() # TODO JUMP
     STATE = 'needToTurnDesired'
+
+''' 
+=== Say 'Marco'
+'''
+def sayMarco():
+    espeak = subprocess.Popen(('espeak','marco', '--stdout'),stdout=subprocess.PIPE)
+    subprocess.check_output(('paplay'), stdin=espeak.stdout)
+    espeak.wait()
 
 '''
 === Turn left or right (depending) until odometryCallback stops it

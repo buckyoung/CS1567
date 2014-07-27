@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import rospy
 import random
+import subprocess
 from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
@@ -106,6 +107,10 @@ def mainLoop():
     if data.x == -100:
         RUNNING = False
 	stop()'''
+
+def sayPolo():
+    subprocess.call(["espeak","polo","2>/dev/null"])
+
 def initialize_commands():
     global const_cmd_srv
     global bumper_event

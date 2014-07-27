@@ -318,7 +318,7 @@ def initialize_commands():
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
-    jump_play = rospy.Publisher('/marco/play', bool)
+    jump_play = rospy.Publisher('/marco/play', Bool)
     location_list = rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
 
 ''' 

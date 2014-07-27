@@ -266,6 +266,9 @@ def bumperCallback(data): #TODO will this work?
 '''
 def locationCallback(msg):
     global STATE
+    print "LOCATIONLIST"
+    print msg
+    
     if STATE == 'l_getLocation':
         print "LOCATIONLIST"
         print msg
@@ -319,7 +322,7 @@ def initialize_commands():
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
-    #jump_play = rospy.Publisher('/marco/play', Running)
+    jump_play = rospy.Publisher('/marco/play', Running)
     location_list = rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
 
 ''' 

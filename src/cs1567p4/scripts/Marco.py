@@ -5,7 +5,6 @@ import subprocess
 from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
-from cs1567p4.msg import *
 from geometry_msgs.msg import *
 from kobuki_msgs.msg import BumperEvent
 from tf.transformations import euler_from_quaternion

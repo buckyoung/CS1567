@@ -19,59 +19,14 @@ BACKUP_DISTANCE   = 5.00 #TODO determine if good number
 ## Globals
 bumper_event    = None
 const_cmd_srv   = None
+jump_play       = None
 send_command    = rospy.ServiceProxy('constant_command', ConstantCommand)
 startPosition   = {'x' : 0.0, 'y' : 0.0}
-desiredDistance = 0.0
-desiredAngle    = 0.0
+ANGLE           = 0.0
+DISTANCE        = 0.0
 GAMEOVER        = False
 STATE           = ''
-
-## DEBUG FUNCTIONS
-def jump_GetAngle():
-    #publish -314
-    return 2.35 # 3/4's pi # Should turn left on positive and right on negative
-def jump_GetDistance():
-    #publish -1234
-    return 1.0 # 1 meter
-
-'''
-def jump_ask_angle():
-    #publish -1
-def jump_ask_distance():
-    #publish -2
-def jump_ask_win():
-    #publish -3
-
-def jump_answer_angle():
-    #get status code
-def jump_answer_distance():
-    #get status code
-def jump_answer_win():
-    #get status code
-
-def jump_all_start():
-    #publish -111
-def jump_all_stop():
-    #publish -999
-'''
-
-
-## END DEBUG FUNCTIONS
-
-''' 
-======================== TODO ======================== 
-
-- Testing : test BumperEvent and states
-
-- Communicate with JUMP
-    - jump_StopAll : stop all poloBots
-    - jump_GetAngle : return the angle in radians (-pi < a < pi) to the closest poloBot, assuming marco is facing north
-    - jump_GetDistance : return the distance in meters to the closest poloBot
-    - jump_StartAll : start all poloBots
-    - jump_CheckWin : return true or false
-
-====================================================== 
-'''
+LOCATIONS            = [] #array of dictionaries!
 
 ##
 ##
@@ -81,17 +36,17 @@ def jump_all_stop():
 '''
 =================  STATE MACHINE  ======================
 
--> needToCallMarco          : callMarco()
+-> needToCallMarco            : callMarco()
+    -> l_getLocation            : locationCallback()
 
--> needToTurnDesired        : turnDesired()
+-> needToCalculate            : calculateAndSet()
+
+-> needToTurnDesired          : turnDesired()
     -> o_turnDesired            : odometryCallback()
 
--> needToTravelDesired      : travelDesired()
+-> needToTravelDesired        : travelDesired()
     -> o_saveStartPosition      : odometryCallback()
         -> o_travelDesired          : odometryCallback()
-
--> needToFaceNorth          : faceNorth()
-    -> o_faceNorth              : odometryCallback
 
 =====================  REPEAT  =========================
 '''
@@ -107,38 +62,36 @@ def jump_all_stop():
 def loop():
     if   STATE == 'needToCallMarco':
         callMarco()
+    elif STATE == 'needToCalculate':
+        calculateAndSet()
     elif STATE == 'needToTurnDesired':
         turnDesired()
     elif STATE == 'needToTravelDesired':
         travelDesired()
-    elif STATE == 'needToFaceNorth':
-        faceNorth()
 
 ''' 
 === Communicate with Jump, get desiredAngle and desiredDistance to closest polo
 '''
 def callMarco():
-    global desiredAngle
-    global desiredDistance
+    global ANGLE
+    global DISTANCE
     global STATE
     # Say Marco
     sayMarco()
     # Everyone stop
     stop()
-    # jump_StopAll() # TODO JUMP
-    # Set globals
-    desiredAngle    = jump_GetAngle() # TODO JUMP
-    desiredDistance = jump_GetDistance() # TODO JUMP
-    # jump_StartAll() # TODO JUMP
-    STATE = 'needToTurnDesired'
+    jump_StopAll()
+    # Look at location list
+    STATE = 'l_getLocation'
 
 ''' 
-=== Say 'Marco'
+=== Calculate closest, set globals
 '''
-def sayMarco():
-    espeak = subprocess.Popen(('espeak','marco', '--stdout'),stdout=subprocess.PIPE)
-    subprocess.check_output(('paplay'), stdin=espeak.stdout)
-    espeak.wait()
+def calculateAndSet():
+    global STATE
+    getClosestAndSetDistanceAndAngle()
+    jump_StartAll()
+    STATE = 'needToTurnDesired'
 
 '''
 === Turn left or right (depending) until odometryCallback stops it
@@ -146,10 +99,7 @@ def sayMarco():
 def turnDesired():
     global STATE
     command = Twist()
-    if desiredAngle > 0.0:  # if positive, turn left     #TODO is this the correct way to turn?
-        command.angular.z = ANGULAR_SPEED
-    else:                   # else       , turn right    #TODO is this the correct way to turn?
-        command.angular.z = -ANGULAR_SPEED
+    command.angular.z = ANGULAR_SPEED
     send_command(command)
     STATE = 'o_turnDesired'
 
@@ -163,58 +113,19 @@ def travelDesired():
     send_command(command)
     STATE = 'o_saveStartPosition'
 
-'''
-=== Turn left until odometryCallback stops it
-'''
-def faceNorth():
-    global STATE
-    command = Twist()
-    command.angular.z = ANGULAR_SPEED
-    send_command(command)
-    STATE = 'o_faceNorth'
-
-''' 
-=== Odometry Callback state machine, determines when to stop the robot and sets next state
-'''
-def odometryCallback(data):
-    global STATE
-
-    if STATE == 'interrupted':
-        return
-
-    if   STATE == 'o_faceNorth':
-        # Get current yaw in radians
-        currentYaw = getCurrentYaw(data)
-        # Get to 0.0 w/in threshold
-        if abs(currentYaw - 0.0) <= ANGULAR_THRESHOLD:
-            stop()
-            STATE = 'needToCallMarco'
-
-    elif STATE == 'o_turnDesired':
-        # Get current yaw in radians
-        currentYaw = getCurrentYaw(data)
-        # Get to desiredAngle w/in threshold
-        if abs(currentYaw - desiredAngle) <= ANGULAR_THRESHOLD:
-            stop()
-            STATE = 'needToTravelDesired'
-
-    elif STATE == 'o_saveStartPosition':
-        setStartPosition(data)
-        STATE = 'o_travelDesired'
-
-    elif STATE == 'o_travelDesired':
-        # Get current distance travelled
-        distanceTravelled = calculateDistance(startPosition, getCurrentPosition(data)) #global startPosition
-        # Get to desiredDistance w/in threshold
-        if abs(distanceTravelled - desiredDistance) <= LINEAR_THRESHOLD:
-            stop()
-            STATE = 'needToFaceNorth'
-
 ##
 ##
 ## Helper Functions
 ##
 ##
+''' 
+=== Say 'Marco'
+'''
+def sayMarco():
+    espeak = subprocess.Popen(('espeak','marco', '--stdout'),stdout=subprocess.PIPE)
+    subprocess.check_output(('paplay'), stdin=espeak.stdout)
+    espeak.wait()
+
 ''' 
 === Return the currentYaw in radians
 '''
@@ -270,6 +181,72 @@ def bumperBackup():
     stop()
 
 ''' 
+=== Get closest polo and set DISTANCE -- CALLS SETANGLE AS WELL SORRY
+'''
+def getClosestAndSetDistanceAndAngle():
+    global DISTANCE
+    # Set my location
+    '''myLocationX = 
+    myLocationY = 
+    # Set location of polo 1
+    polo1LocationX =
+    polo1LocationY =
+    # Set location of polo 2
+    polo2LocationX = 
+    polo2LocationY = 
+    '''
+    distanceTo1 = math.hypot(myLocationX-polo1LocationX, myLocationY-polo1LocationY)
+    distanceTo2 = math.hypot(myLocationX-polo2LocationX, myLocationY-polo2LocationY)
+
+    if distanceTo1 > distanceTo2:
+        DISTANCE = distanceTo2
+        setAngle(myLocationX, myLocationY, polo2LocationX, polo2LocationY)
+    else:
+        DISTANCE = distanceTo1
+        setAngle(myLocationX, myLocationY, polo1LocationX, polo1LocationY)
+
+''' 
+=== Set ANGLE based on two locations and quadrant of polo
+'''
+def setAngle(marcoX, marcoY, poloX, poloY):
+    global ANGLE
+    ANGLE = math.atan2(marcoY-poloY, marcoX-poloX)
+    if (poloX >= 0 and poloY >=0):
+        # Q1
+        # just angle
+        ANGLE = 1 * ANGLE
+    elif (poloX >=0 and poloY < 0):
+        # Q4
+        # negative angle
+        ANGLE = -1 * ANGLE
+    elif (poloX < 0 and poloY >=0):
+        # Q2
+        # +90 + angle
+        ANGLE = (math.pi/2) + ANGLE
+    else: #(poloX<0 and poloY<0)
+        # Q3
+        # -90 - angle
+        ANGLE = -(math.pi/2) - ANGLE
+
+##
+##
+## Jump Functions
+##
+##
+def jump_StopAll():
+    global jump_play
+    jump_play.publish(False)
+
+def jump_StartAll():
+    global jump_play
+    jump_play.publish(True)
+
+##
+##
+## Callback Functions
+##
+##
+''' 
 === Bumper Callback for a BumperEvent
 '''
 def bumperCallback(data): #TODO will this work?
@@ -281,25 +258,69 @@ def bumperCallback(data): #TODO will this work?
     STATE = 'interrupted' #dummy state
     stop()
     bumperBackup()
-    STATE = 'needToFaceNorth'
+    STATE = 'needToCallMarco'
 
+''' 
+=== Location Callback 
+'''
+def locationCallback(msg):
+    global STATE
+    if STATE == 'l_getLocation':
+        print "LOCATIONLIST"
+        print msg
+        STATE = 'needToCalculate'
+
+''' 
+=== Odometry Callback state machine, determines when to stop the robot and sets next state
+'''
+def odometryCallback(data):
+    global STATE
+
+    if STATE == 'interrupted':
+        return
+
+    if STATE == 'o_turnDesired':
+        # Get current yaw in radians
+        currentYaw = getCurrentYaw(data)
+        # Get to desiredAngle w/in threshold
+        if abs(currentYaw - ANGLE) <= ANGULAR_THRESHOLD:
+            stop()
+            STATE = 'needToTravelDesired'
+
+    elif STATE == 'o_saveStartPosition':
+        setStartPosition(data)
+        STATE = 'o_travelDesired'
+
+    elif STATE == 'o_travelDesired':
+        # Get current distance travelled
+        distanceTravelled = calculateDistance(startPosition, getCurrentPosition(data)) #global startPosition
+        # Get to desiredDistance w/in threshold
+        if abs(distanceTravelled - DISTANCE) <= LINEAR_THRESHOLD:
+            stop()
+            STATE = 'needToCallMarco'
+
+
+##
+##
+## Init/Main
+##
+##
 ''' 
 === Initialize 
 '''
 def initialize_commands():
     global const_cmd_srv 
     global bumper_event 
+    global jump_play
+    global location_list
     rospy.Subscriber('/odom', Odometry, odometryCallback)
     rospy.init_node('marconode', anonymous=True)
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
+    jump_play = rospy.Publisher('/marco/play', bool)
+    location_list = rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
 
-##
-##
-## Main
-##
-##
 ''' 
 === Main
 '''
@@ -310,7 +331,8 @@ if __name__ == "__main__":
         STATE = 'needToCallMarco' # init -- start facing north!
 
         while not GAMEOVER:
-            loop()
+            poop = 'poop'
+            #loop()
 
     except rospy.ROSInterruptException: pass
 

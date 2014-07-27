@@ -11,6 +11,7 @@ from kobuki_msgs.msg import BumperEvent
 #Globals
 bumper_event  = None
 const_cmd_srv = None
+jump_play     = None
 send_command  = rospy.ServiceProxy('constant_command', ConstantCommand)
 GAMEOVER      = False
 MARCO         = True
@@ -27,8 +28,6 @@ ANGULAR_SPEED = 0.40
 - Communicate with JUMP
     - jump_ShouldStop  ? : stop
     - jump_ShouldStart ? : start
-    
-- Sound File (polo!)
 
 - Change node name if multiple poloBots, (could change filename: polo1.py, polo2.py, etc) 
 
@@ -102,11 +101,11 @@ def mainLoop():
                 turn("left", 11.0) 
                 INTERRUPTED = False
             
-'''def jumpCallBack(data):
+def playCallback(msg):
     global RUNNING
-    if data.x == -100:
-        RUNNING = False
-	stop()'''
+    print msg.data
+    RUNNING = msg.data
+
 
 def sayPolo():
     espeak = subprocess.Popen(('espeak','polo', '--stdout'),stdout=subprocess.PIPE)
@@ -116,10 +115,12 @@ def sayPolo():
 def initialize_commands():
     global const_cmd_srv
     global bumper_event
+    global jump_play
     rospy.init_node('polonode', anonymous=True) #TODO NODE WILL BE SAME IF MULTIPLE!
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
+    jump_play = rospy.Subscriber('/marco/play', bool, playCallback)
 
 if __name__ == "__main__":   
     try: 

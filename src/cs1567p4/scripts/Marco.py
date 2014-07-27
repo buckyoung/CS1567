@@ -5,6 +5,7 @@ import subprocess
 from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
+from cs1567p4.msg import *
 from geometry_msgs.msg import *
 from kobuki_msgs.msg import BumperEvent
 from tf.transformations import euler_from_quaternion
@@ -318,7 +319,7 @@ def initialize_commands():
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
-    jump_play = rospy.Publisher('/marco/play', Bool)
+    jump_play = rospy.Publisher('/marco/play', Running)
     location_list = rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
 
 ''' 

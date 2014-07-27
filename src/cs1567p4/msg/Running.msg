@@ -1,1 +1,1 @@
-bool running
+bool Running

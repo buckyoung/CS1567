@@ -27,9 +27,34 @@ STATE           = ''
 
 ## DEBUG FUNCTIONS
 def jump_GetAngle():
+    #publish -314
     return 2.35 # 3/4's pi # Should turn left on positive and right on negative
 def jump_GetDistance():
+    #publish -1234
     return 1.0 # 1 meter
+
+'''
+def jump_ask_angle():
+    #publish -1
+def jump_ask_distance():
+    #publish -2
+def jump_ask_win():
+    #publish -3
+
+def jump_answer_angle():
+    #get status code
+def jump_answer_distance():
+    #get status code
+def jump_answer_win():
+    #get status code
+
+def jump_all_start():
+    #publish -111
+def jump_all_stop():
+    #publish -999
+'''
+
+
 ## END DEBUG FUNCTIONS
 
 ''' 
@@ -42,6 +67,7 @@ def jump_GetDistance():
     - jump_GetAngle : return the angle in radians (-pi < a < pi) to the closest poloBot, assuming marco is facing north
     - jump_GetDistance : return the distance in meters to the closest poloBot
     - jump_StartAll : start all poloBots
+    - jump_CheckWin : return true or false
 
 - Sound File (marco!)
 

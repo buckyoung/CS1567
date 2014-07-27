@@ -268,7 +268,7 @@ def locationCallback(msg):
     global STATE
     print "LOCATIONLIST"
     print msg
-    
+
     if STATE == 'l_getLocation':
         print "LOCATIONLIST"
         print msg
@@ -329,6 +329,9 @@ def initialize_commands():
 === Main
 '''
 if __name__ == "__main__":   
+
+    print "HELLO EVERYONE"
+    
     try: 
         initialize_commands()
 

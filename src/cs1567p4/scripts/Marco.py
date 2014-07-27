@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import rospy
 import math
+import subprocess
 from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
@@ -69,8 +70,6 @@ def jump_all_stop():
     - jump_StartAll : start all poloBots
     - jump_CheckWin : return true or false
 
-- Sound File (marco!)
-
 ====================================================== 
 '''
 
@@ -123,7 +122,9 @@ def callMarco():
     global desiredDistance
     global STATE
     # Play sound file
-    # TODO sound file
+    espeak = subprocess.Popen(('espeak','marco', '--stdout'),stdout=subprocess.PIPE)
+    subprocess.check_output(('paplay'), stdin=espeak.stdout)
+    espeak.wait()
     # Everyone stop
     stop()
     # jump_StopAll() # TODO JUMP
@@ -170,10 +171,10 @@ def faceNorth():
 === Odometry Callback state machine, determines when to stop the robot and sets next state
 '''
 def odometryCallback(data):
+    global STATE
+
     if STATE == 'interrupted':
         return
-
-    global STATE
 
     if   STATE == 'o_faceNorth':
         # Get current yaw in radians
@@ -266,10 +267,11 @@ def bumperBackup():
 === Bumper Callback for a BumperEvent
 '''
 def bumperCallback(data): #TODO will this work?
+    global STATE
+
     if(data.state == 0): 
         return #return if state is released
     
-    global STATE
     STATE = 'interrupted' #dummy state
     stop()
     bumperBackup()
@@ -296,7 +298,6 @@ def initialize_commands():
 === Main
 '''
 if __name__ == "__main__":   
-    global STATE
     try: 
         initialize_commands()
 

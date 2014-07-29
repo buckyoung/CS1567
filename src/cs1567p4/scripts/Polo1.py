@@ -5,18 +5,17 @@ import subprocess
 from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
+from std_msgs.msg import *
 from geometry_msgs.msg import *
 from kobuki_msgs.msg import BumperEvent
 
 #Globals
-bumper_event  = None
 const_cmd_srv = None
-jump_play     = None
 send_command  = rospy.ServiceProxy('constant_command', ConstantCommand)
 GAMEOVER      = False
 MARCO         = True
 INTERRUPTED   = False
-RUNNING       = True
+RUNNING       = False
 
 #Constants
 LINEAR_SPEED  = 0.10
@@ -92,8 +91,8 @@ def mainLoop():
             
 def playCallback(msg):
     global RUNNING
-    print msg.data #DEBUG
-    RUNNING = msg.data
+    print msg.running #DEBUG
+    RUNNING = msg.running
 
 def sayPolo():
     espeak = subprocess.Popen(('espeak','polo', '--stdout'),stdout=subprocess.PIPE)
@@ -102,13 +101,11 @@ def sayPolo():
     
 def initialize_commands():
     global const_cmd_srv
-    global bumper_event
-    global jump_play
-    rospy.init_node('polo1node', anonymous=True) #POLO1NODE
+    rospy.init_node('polo1node', anonymous=True) #POLO1NODE #TODO #DEBUG
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
-    bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
-    jump_play = rospy.Subscriber('/marco/play', bool, playCallback)
+    rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
+    rospy.Subscriber('/marco/play', std_msgs/Bool, playCallback)
 
 if __name__ == "__main__":   
     try: 

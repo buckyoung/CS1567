@@ -6,6 +6,7 @@ from cs1567p4.srv import *
 from std_srvs.srv import * 
 from nav_msgs.msg import *
 from cs1567p4.msg import *
+from std_msgs.msg import *
 from geometry_msgs.msg import *
 from kobuki_msgs.msg import BumperEvent
 from tf.transformations import euler_from_quaternion
@@ -18,10 +19,8 @@ ANGULAR_THRESHOLD = 0.05
 BACKUP_DISTANCE   = 5.00 
 
 ## Services 
-bumper_event  = None
 const_cmd_srv = None
 jump_play     = None
-location_list = None
 
 ## Globals
 send_command        = rospy.ServiceProxy('constant_command', ConstantCommand)
@@ -333,16 +332,14 @@ def odometryCallback(data):
 '''
 def initialize_commands():
     global const_cmd_srv 
-    global bumper_event 
     global jump_play
-    global location_list
     rospy.Subscriber('/odom', Odometry, odometryCallback)
     rospy.init_node('marconode', anonymous=True)
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
-    bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
     jump_play = rospy.Publisher('/marco/play', Running)
-    location_list = rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
+    rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
+    rospy.Subscriber('/tomservo/location', LocationList, locationCallback)
 
 ''' 
 === Main

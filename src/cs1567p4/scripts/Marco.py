@@ -11,23 +11,30 @@ from kobuki_msgs.msg import BumperEvent
 from tf.transformations import euler_from_quaternion
 
 ## Constants
-LINEAR_SPEED      = 0.15 #TODO determine if good speed for marco, compared to polo
-ANGULAR_SPEED     = 0.45 #TODO determine if good speed for marco, compared to polo
-LINEAR_THRESHOLD  = 0.05 #TODO determine if good number
-ANGULAR_THRESHOLD = 0.05 #TODO determine if good number
-BACKUP_DISTANCE   = 5.00 #TODO determine if good number
+LINEAR_SPEED      = 0.15
+ANGULAR_SPEED     = 0.45
+LINEAR_THRESHOLD  = 0.05 
+ANGULAR_THRESHOLD = 0.05 
+BACKUP_DISTANCE   = 5.00 
+
+## Services 
+bumper_event  = None
+const_cmd_srv = None
+jump_play     = None
+location_list = None
 
 ## Globals
-bumper_event    = None
-const_cmd_srv   = None
-jump_play       = None
-send_command    = rospy.ServiceProxy('constant_command', ConstantCommand)
-startPosition   = {'x' : 0.0, 'y' : 0.0}
-ANGLE           = 0.0
-DISTANCE        = 0.0
-GAMEOVER        = False
-STATE           = ''
-LOCATIONS            = [] #array of dictionaries!
+send_command        = rospy.ServiceProxy('constant_command', ConstantCommand)
+startPosition       = {'x' : 0.0, 'y' : 0.0}
+GAMEOVER            = False
+STATE               = ''
+
+locations           = [] # 2D array of dictionaries! [{'marco' : {'x': 0.0, 'y': 0.0}}, {'polo': {'x':0.0,'y':0.0}}]
+myLocation          = {'x' : 0.0, 'y' : 0.0}
+closestPoloLocation = {'x' : 0.0, 'y' : 0.0}
+desiredAngle        = 0.0
+desiredDistance     = 0.0
+
 
 ##
 ##
@@ -74,8 +81,6 @@ def loop():
 === Communicate with Jump, get desiredAngle and desiredDistance to closest polo
 '''
 def callMarco():
-    global ANGLE
-    global DISTANCE
     global STATE
     # Say Marco
     sayMarco()
@@ -90,7 +95,7 @@ def callMarco():
 '''
 def calculateAndSet():
     global STATE
-    getClosestAndSetDistanceAndAngle()
+    getClosestAndSetGlobals()
     jump_StartAll()
     STATE = 'needToTurnDesired'
 
@@ -182,52 +187,62 @@ def bumperBackup():
     stop()
 
 ''' 
-=== Get closest polo and set DISTANCE -- CALLS SETANGLE AS WELL SORRY
+=== Get closest polo and set desiredDistance -- calls setDesiredAngle as well
 '''
-def getClosestAndSetDistanceAndAngle():
-    global DISTANCE
+def getClosestAndSetGlobals():
+    global desiredDistance
+    global closestPoloLocation
+    global myLocation
+
     # Set my location
-    '''myLocationX = 
-    myLocationY = 
+    myLocationX = locations['marco']['x']
+    myLocationY = locations['marco']['y']
     # Set location of polo 1
-    polo1LocationX =
-    polo1LocationY =
+    polo1LocationX = locations['polo1']['x']
+    polo1LocationY = locations['polo1']['y']
     # Set location of polo 2
-    polo2LocationX = 
-    polo2LocationY = 
-    '''
+    polo2LocationX = locations['polo2']['x']
+    polo2LocationY = locations['polo2']['y']
+
+    myLocation['x'] = myLocationX
+    myLocation['y'] = myLocationY
+
     distanceTo1 = math.hypot(myLocationX-polo1LocationX, myLocationY-polo1LocationY)
     distanceTo2 = math.hypot(myLocationX-polo2LocationX, myLocationY-polo2LocationY)
 
     if distanceTo1 > distanceTo2:
-        DISTANCE = distanceTo2
-        setAngle(myLocationX, myLocationY, polo2LocationX, polo2LocationY)
+        closestPoloLocation['x'] = polo2LocationX
+        closestPoloLocation['y'] = polo2LocationY
+        desiredDistance = distanceTo2
+        setDesiredAngle(myLocationX, myLocationY, polo2LocationX, polo2LocationY)
     else:
-        DISTANCE = distanceTo1
-        setAngle(myLocationX, myLocationY, polo1LocationX, polo1LocationY)
+        closestPoloLocation['x'] = polo1LocationX
+        closestPoloLocation['y'] = polo1LocationY
+        desiredDistance = distanceTo1
+        setDesiredAngle(myLocationX, myLocationY, polo1LocationX, polo1LocationY)
 
 ''' 
-=== Set ANGLE based on two locations and quadrant of polo
+=== Set desiredAngle based on two locations and quadrant of polo
 '''
-def setAngle(marcoX, marcoY, poloX, poloY):
-    global ANGLE
-    ANGLE = math.atan2(marcoY-poloY, marcoX-poloX)
+def setDesiredAngle(marcoX, marcoY, poloX, poloY):
+    global desiredAngle
+    desiredAngle = math.atan2(marcoY-poloY, marcoX-poloX)
     if (poloX >= 0 and poloY >=0):
         # Q1
         # just angle
-        ANGLE = 1 * ANGLE
+        desiredAngle = 1 * desiredAngle
     elif (poloX >=0 and poloY < 0):
         # Q4
         # negative angle
-        ANGLE = -1 * ANGLE
+        desiredAngle = -1 * desiredAngle
     elif (poloX < 0 and poloY >=0):
         # Q2
         # +90 + angle
-        ANGLE = (math.pi/2) + ANGLE
+        desiredAngle = (math.pi/2) + desiredAngle
     else: #(poloX<0 and poloY<0)
         # Q3
         # -90 - angle
-        ANGLE = -(math.pi/2) - ANGLE
+        desiredAngle = -(math.pi/2) - desiredAngle
 
 ##
 ##
@@ -250,7 +265,7 @@ def jump_StartAll():
 ''' 
 === Bumper Callback for a BumperEvent
 '''
-def bumperCallback(data): #TODO will this work?
+def bumperCallback(data):
     global STATE
 
     if(data.state == 0): 
@@ -262,16 +277,21 @@ def bumperCallback(data): #TODO will this work?
     STATE = 'needToCallMarco'
 
 ''' 
-=== Location Callback 
+=== Location Callback -- TODO: transform msg data into usable locations[]
 '''
 def locationCallback(msg):
     global STATE
-    print "LOCATIONLIST"
-    print msg
+    print "LOCATIONLIST outside if" #DEBUG
+    print msg #DEBUG
 
     if STATE == 'l_getLocation':
-        print "LOCATIONLIST"
-        print msg
+        print "LOCATIONLIST inside if" #DEBUG
+        print msg #DEBUG
+        # TODO
+        # TODO
+        # TODO transform msg to locations -- 2d dictionary: [{'marco' : {'x': 0.0, 'y': 0.0}}, {'polo': {'x':0.0,'y':0.0}}]
+        # TODO
+        # TODO
         STATE = 'needToCalculate'
 
 ''' 
@@ -287,7 +307,7 @@ def odometryCallback(data):
         # Get current yaw in radians
         currentYaw = getCurrentYaw(data)
         # Get to desiredAngle w/in threshold
-        if abs(currentYaw - ANGLE) <= ANGULAR_THRESHOLD:
+        if abs(currentYaw - desiredAngle) <= ANGULAR_THRESHOLD:
             stop()
             STATE = 'needToTravelDesired'
 
@@ -299,10 +319,9 @@ def odometryCallback(data):
         # Get current distance travelled
         distanceTravelled = calculateDistance(startPosition, getCurrentPosition(data)) #global startPosition
         # Get to desiredDistance w/in threshold
-        if abs(distanceTravelled - DISTANCE) <= LINEAR_THRESHOLD:
+        if abs(distanceTravelled - desiredDistance) <= LINEAR_THRESHOLD:
             stop()
             STATE = 'needToCallMarco'
-
 
 ##
 ##
@@ -329,17 +348,12 @@ def initialize_commands():
 === Main
 '''
 if __name__ == "__main__":   
-
-    print "HELLO EVERYONE"
-    
     try: 
         initialize_commands()
 
-        STATE = 'needToCallMarco' # init -- start facing north!
-
+        STATE = 'needToCallMarco' # init (note: already in global space)
         while not GAMEOVER:
-            poop = 'poop'
-            #loop()
+            loop()
 
     except rospy.ROSInterruptException: pass
 

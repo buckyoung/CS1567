@@ -22,18 +22,6 @@ RUNNING       = True
 LINEAR_SPEED  = 0.10
 ANGULAR_SPEED = 0.40
 
-''' 
-======================== TODO ======================== 
-
-- Communicate with JUMP
-    - jump_ShouldStop  ? : stop
-    - jump_ShouldStart ? : start
-
-- Change node name if multiple poloBots, (could change filename: polo1.py, polo2.py, etc) 
-
-====================================================== 
-'''
-
 #Functions
 def go(direction, duration):
     command = Twist()
@@ -89,6 +77,7 @@ def randomDirection():
         return "left"
 
 def randomDuration():
+    #
     return random.randrange(0, 7)
 
 def mainLoop():
@@ -103,9 +92,8 @@ def mainLoop():
             
 def playCallback(msg):
     global RUNNING
-    print msg.data
+    print msg.data #DEBUG
     RUNNING = msg.data
-
 
 def sayPolo():
     espeak = subprocess.Popen(('espeak','polo', '--stdout'),stdout=subprocess.PIPE)
@@ -116,7 +104,7 @@ def initialize_commands():
     global const_cmd_srv
     global bumper_event
     global jump_play
-    rospy.init_node('polonode', anonymous=True) #TODO NODE WILL BE SAME IF MULTIPLE!
+    rospy.init_node('polo1node', anonymous=True) #POLO1NODE
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     bumper_event = rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)

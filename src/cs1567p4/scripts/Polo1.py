@@ -105,7 +105,7 @@ def initialize_commands():
     rospy.wait_for_service('constant_command')
     const_cmd_srv = rospy.ServiceProxy('constant_command', ConstantCommand)
     rospy.Subscriber('/mobile_base/events/bumper',BumperEvent, bumperCallback)
-    rospy.Subscriber('/marco/play', std_msgs/Bool, playCallback)
+    rospy.Subscriber('/marco/play', std_msgs.Bool, playCallback)
 
 if __name__ == "__main__":   
     try: 
